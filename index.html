@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pink Snake</title>
+
+<style>
+:root{
+  --bg1:#ffe3f0;
+  --bg2:#ffd1e6;
+  --panel:#fff0f7;
+  --pink:#ff5aa5;
+  --pink2:#ff8cc2;
+  --grid:#ff9acb;
+  --text:#7a1d4a;
+  --muted:#a84a78;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto;
+  background: linear-gradient(180deg,var(--bg1),var(--bg2));
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+  color:var(--text);
+}
+
+h1{
+  color:var(--pink);
+  margin:10px 0;
+}
+
+.top{
+  text-align:center;
+}
+
+.scoreboard{
+  display:flex;
+  gap:15px;
+  justify-content:center;
+  margin-bottom:10px;
+  font-weight:bold;
+}
+
+button{
+  padding:8px 14px;
+  margin:5px;
+  border:none;
+  border-radius:10px;
+  font-weight:bold;
+  background:var(--pink);
+  color:white;
+}
+
+button.secondary{
+  background:#ffb3d6;
+  color:#7a1d4a;
+}
+
+canvas{
+  background:#ffd6ea;
+  border:3px solid #ff9acb;
+  border-radius:15px;
+  width:90vw;
+  max-width:500px;
+  touch-action:none;
+}
+
+.pad{
+  margin-top:10px;
+  text-align:center;
+}
+
+.pad button{
+  width:60px;
+  height:50px;
+  font-size:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+  <h1>Pink Snake</h1>
+  <div class="scoreboard">
+    <div>Score: <span id="score">0</span></div>
+    <div>High: <span id="high">0</span></div>
+    <div>Mode: <span id="mode">Easy</span></div>
+  </div>
+
+  <div>
+    <button onclick="setDifficulty('easy')">Easy</button>
+    <button onclick="setDifficulty('medium')">Medium</button>
+    <button onclick="setDifficulty('hard')">Hard</button>
+    <button class="secondary" onclick="resetGame()">Reset</button>
+  </div>
+</div>
+
+<canvas id="game" width="600" height="600"></canvas>
+
+<div class="pad">
+  <div>
+    <button onclick="setDir(0,-1)">▲</button>
+  </div>
+  <div>
+    <button onclick="setDir(-1,0)">◀</button>
+    <button onclick="setDir(0,1)">▼</button>
+    <button onclick="setDir(1,0)">▶</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const GRID = 20;
+let snake, dir, nextDir, food, score, highScore;
+let speed = 150;
+let mode = "easy";
+let interval;
+
+highScore = parseInt(localStorage.getItem("pink_high") || "0");
+
+function resizeCanvas(){
+  const size = Math.min(window.innerWidth*0.9,500);
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = size+"px";
+  canvas.style.height = size+"px";
+  canvas.width = size*dpr;
+  canvas.height = size*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener("resize",resizeCanvas);
+resizeCanvas();
+
+function resetGame(){
+  snake = [{x:9,y:10},{x:10,y:10}];
+  dir = {x:1,y:0};
+  nextDir = {x:1,y:0};
+  score = 0;
+  placeFood();
+  updateUI();
+}
+resetGame();
+
+function setDifficulty(level){
+  mode = level;
+  if(level==="easy") speed = 200;
+  if(level==="medium") speed = 120;
+  if(level==="hard") speed = 80;
+  document.getElementById("mode").innerText = level.charAt(0).toUpperCase()+level.slice(1);
+  clearInterval(interval);
+  interval = setInterval(tick, speed);
+}
+
+function updateUI(){
+  document.getElementById("score").innerText = score;
+  document.getElementById("high").innerText = highScore;
+}
+
+function placeFood(){
+  while(true){
+    let x = Math.floor(Math.random()*GRID);
+    let y = Math.floor(Math.random()*GRID);
+    if(!snake.some(s=>s.x===x&&s.y===y)){
+      food={x,y};
+      break;
+    }
+  }
+}
+
+function setDir(x,y){
+  if(x===-dir.x && y===-dir.y) return;
+  nextDir={x,y};
+}
+
+function tick(){
+  dir=nextDir;
+  let head=snake[snake.length-1];
+  let newHead={x:head.x+dir.x,y:head.y+dir.y};
+
+  if(newHead.x<0||newHead.y<0||newHead.x>=GRID||newHead.y>=GRID||
+     snake.some(s=>s.x===newHead.x&&s.y===newHead.y)){
+       resetGame();
+       return;
+  }
+
+  snake.push(newHead);
+
+  if(newHead.x===food.x&&newHead.y===food.y){
+    score+=10;
+    if(score>highScore){
+      highScore=score;
+      localStorage.setItem("pink_high",highScore);
+    }
+    placeFood();
+  }else{
+    snake.shift();
+  }
+
+  updateUI();
+  draw();
+}
+
+function draw(){
+  const size = canvas.width/(window.devicePixelRatio||1);
+  const cell=size/GRID;
+
+  ctx.fillStyle="#ffd6ea";
+  ctx.fillRect(0,0,size,size);
+
+  ctx.strokeStyle="rgba(255,90,165,0.4)";
+  for(let i=0;i<=GRID;i++){
+    ctx.beginPath();
+    ctx.moveTo(i*cell,0);
+    ctx.lineTo(i*cell,size);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0,i*cell);
+    ctx.lineTo(size,i*cell);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle="#ef476f";
+  ctx.beginPath();
+  ctx.arc(food.x*cell+cell/2,food.y*cell+cell/2,cell*0.3,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle="#06d6a0";
+  snake.forEach(s=>{
+    ctx.fillRect(s.x*cell+cell*0.1,s.y*cell+cell*0.1,cell*0.8,cell*0.8);
+  });
+}
+
+window.addEventListener("keydown",e=>{
+  if(e.key==="ArrowUp") setDir(0,-1);
+  if(e.key==="ArrowDown") setDir(0,1);
+  if(e.key==="ArrowLeft") setDir(-1,0);
+  if(e.key==="ArrowRight") setDir(1,0);
+});
+
+let touchStart=null;
+canvas.addEventListener("touchstart",e=>{
+  touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};
+});
+canvas.addEventListener("touchend",e=>{
+  let dx=e.changedTouches[0].clientX-touchStart.x;
+  let dy=e.changedTouches[0].clientY-touchStart.y;
+  if(Math.abs(dx)>Math.abs(dy)){
+    if(dx>0)setDir(1,0);else setDir(-1,0);
+  }else{
+    if(dy>0)setDir(0,1);else setDir(0,-1);
+  }
+});
+
+setDifficulty("easy");
+draw();
+</script>
+
+</body>
+</html>
